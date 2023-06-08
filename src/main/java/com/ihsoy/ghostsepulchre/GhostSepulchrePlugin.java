@@ -1,12 +1,16 @@
-package com.example;
+package com.ihsoy.ghostsepulchre;
 
 import com.google.inject.Provides;
 import javax.inject.Inject;
+
+import com.ihsoy.ghostsepulchre.recording.StateHandler;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.GameTick;
+import net.runelite.api.events.VarbitChanged;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
@@ -16,13 +20,16 @@ import net.runelite.client.plugins.PluginDescriptor;
 @PluginDescriptor(
 	name = "Example"
 )
-public class ExamplePlugin extends Plugin
+public class GhostSepulchrePlugin extends Plugin
 {
 	@Inject
 	private Client client;
 
 	@Inject
-	private ExampleConfig config;
+	private GhostSepulchreConfig config;
+
+	@Inject
+	private StateHandler stateHandler;
 
 	@Override
 	protected void startUp() throws Exception
@@ -39,15 +46,21 @@ public class ExamplePlugin extends Plugin
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged gameStateChanged)
 	{
-		if (gameStateChanged.getGameState() == GameState.LOGGED_IN)
-		{
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Example says " + config.greeting(), null);
-		}
+	}
+
+	@Subscribe
+	public void onVarbitChanged(VarbitChanged varbitChanged) {
+		stateHandler.changeState(varbitChanged);
 	}
 
 	@Provides
-	ExampleConfig provideConfig(ConfigManager configManager)
+	GhostSepulchreConfig provideConfig(ConfigManager configManager)
 	{
-		return configManager.getConfig(ExampleConfig.class);
+		return configManager.getConfig(GhostSepulchreConfig.class);
+	}
+
+	@Subscribe
+	public void onGameTick(GameTick gameTick) {
+		stateHandler.run();
 	}
 }

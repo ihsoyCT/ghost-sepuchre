@@ -1,13 +1,13 @@
-package com.example;
+package com.ihsoy.ghostsepulchre;
 
 import net.runelite.client.RuneLite;
 import net.runelite.client.externalplugins.ExternalPluginManager;
 
-public class ExamplePluginTest
+public class GhostSepulchreTest
 {
 	public static void main(String[] args) throws Exception
 	{
-		ExternalPluginManager.loadBuiltin(ExamplePlugin.class);
+		ExternalPluginManager.loadBuiltin(GhostSepulchrePlugin.class);
 		RuneLite.main(args);
 	}
 }

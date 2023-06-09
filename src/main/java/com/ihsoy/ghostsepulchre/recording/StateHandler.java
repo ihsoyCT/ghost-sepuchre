@@ -1,18 +1,27 @@
 package com.ihsoy.ghostsepulchre.recording;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.VarbitChanged;
+import net.runelite.client.config.ConfigManager;
 
 import javax.inject.Inject;
 import java.util.HashMap;
+import java.util.Set;
+
+import static com.ihsoy.ghostsepulchre.GhostSepulchrePlugin.CONFIG_GROUP;
+import static com.ihsoy.ghostsepulchre.GhostSepulchrePlugin.RECORDING_KEY;
 
 @Slf4j
 public class StateHandler {
     public final static int SEPULCHRE_TIMER = 10413;
-    public final static int SEPULCHRE_STARTED = 6719;
+    public final static int SEPULCHRE_LOADING_SCREEN = 6719;
+    public final static Set<Integer> SEPULCHRE_MAP_REGIONS = ImmutableSet.of(8797,10077,9308,10074,9050);
     private Recording currentRecording;
 
     // TODO: Use hashCode() instead of using String to identify recordings
@@ -20,6 +29,8 @@ public class StateHandler {
 
 
     private final Client client;
+    @Inject
+    private ConfigManager configManager;
     private Playback currentPlayback;
 
     @Getter
@@ -42,62 +53,72 @@ public class StateHandler {
     private STATE state;
 
     public void changeState(VarbitChanged varbitChanged) {
+        if(!isPlayerInSepulchre()) return ;
         if(varbitChanged.getVarbitId() == SEPULCHRE_TIMER) {
             if(varbitChanged.getValue() == 1) {
                 state = STATE.RUN_ENDED;
+                endRun();
             }
         }
-        if(varbitChanged.getVarbitId() == SEPULCHRE_STARTED) {
+        if(varbitChanged.getVarbitId() == SEPULCHRE_LOADING_SCREEN) {
             if(varbitChanged.getValue() == 0) {
+                log.info("10413: "+ client.getVarbitValue(10413));
                 state = STATE.RUN_STARTED;
+                startRun();
             } else {
                 state = STATE.OUT_OF_SEPULCHRE;
+                reset();
             }
         }
     }
+
+    private void endRun() {
+        stopRecording();
+        if(isRecordingFasterThanPlayback()) {
+            storeRecording();
+            saveRecordings();
+            printGameMessage(true);
+        } else {
+            printGameMessage(false);
+        }
+    }
+
+    private void startRun() {
+        log.info("STATE: RUN STARTED");
+        startRecording();
+        loadPlayback();
+        state = STATE.RUN_ACTIVE;
+    }
+
+    private boolean isPlayerInSepulchre() {
+        final int[] mapRegions = client.getMapRegions();
+
+        for(int region: mapRegions) {
+            if(SEPULCHRE_MAP_REGIONS.contains(region)) {
+                return true;
+            }
+        }
+        return false;
+    }
     
     public void run() {
-        switch (state) {
-            case IN_LOBBY:
-                log.info("STATE: IN LOBBY");
-                break;
-            case RUN_STARTED:
-                log.info("STATE: RUN STARTED");
-                startRecording();
-                loadPlayback();
-                state = STATE.RUN_ACTIVE;
-            case RUN_ACTIVE:
-                log.info("STATE: RUN ACTIVE");
-                storeCurrentTile();
-                if(currentPlayback != null) {
-                    currentPlaybackPoint = currentPlayback.getPoint();
-                    currentPlayback.nextPoint();
-                    if(isPlaybackFinished()) {
-                        printYouLostMessage();
-                    }
+        if(state == STATE.RUN_ACTIVE) {
+            log.info("ACTIVE");
+            storeCurrentTile();
+            if(currentPlayback != null) {
+                currentPlaybackPoint = currentPlayback.getPoint();
+                currentPlayback.nextPoint();
+                if(isPlaybackFinished()) {
+                    printYouLostMessage();
                 }
-                break;
-            case RUN_ENDED:
-                log.info("STATE: RUN ENDED");
-                stopRecording();
-                if(isRecordingFasterThanPlayback()) {
-                    storeRecording();
-                    printGameMessage(true);
-                } else {
-                    printGameMessage(false);
-                }
-                break;
-            case OUT_OF_SEPULCHRE:
-                log.info("STATE: OUT OF SEPULCHRE");
-                stopRecording();
-                reset();
-                break;                
+            }
         }
     }
 
     private void startRecording() {
         log.info("RECORDING STARED");
         currentRecording = new Recording();
+        currentRecording.startRecording(client);
     }
 
     private void storeCurrentTile() {
@@ -156,5 +177,41 @@ public class StateHandler {
         currentPlaybackPoint = null;
         currentPlayback = null;
         currentRecording = null;
+    }
+
+    public void saveRecordings() {
+        String json = recordingsToJson();
+        configManager.setConfiguration(CONFIG_GROUP, RECORDING_KEY, json);
+
+        log.debug("Recordings Saved: {}", recordingStorage.size());
+    }
+
+    public void loadRecordings() {
+        String json = configManager.getConfiguration(CONFIG_GROUP, RECORDING_KEY);
+        loadJson(json);
+        log.info("Recordings Loaded: {}", recordingStorage.size());
+    }
+
+    private String recordingsToJson() {
+        Gson gson = new Gson();
+        return gson.toJson(recordingStorage);
+    }
+
+    private void loadJson(String json) {
+        if(json == null || json.length() == 0) {
+            return;
+        }
+        Gson gson = new Gson();
+        try {
+            recordingStorage = new HashMap<>();
+            recordingStorage = gson.fromJson(json, new TypeToken<HashMap<String, Recording>>(){}.getType());
+            recordingStorage.forEach((k,v) -> {
+                log.info("Value: {} Size: {} Hash: {}", k, v.getPoints().size(), k.hashCode());
+            });
+        }
+        catch (Exception e) {
+            log.error("Could not load Recordings", e);
+            //client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "<col=ef1020>Could not load recordings!</col>", null);
+        }
     }
 }

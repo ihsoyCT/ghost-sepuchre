@@ -41,13 +41,11 @@ public class Playback {
         return points.get(tick_counter);
     }
 
-    public WorldPoint nextPoint() {
+    public void nextPoint() {
         tick_counter++;
         if(tick_counter >= points.size()) {
             finished = true;
         }
-
-        return getPoint();
     }
 
     public void rewind() {

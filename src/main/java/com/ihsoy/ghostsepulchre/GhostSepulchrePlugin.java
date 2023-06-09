@@ -15,6 +15,7 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.ui.overlay.OverlayManager;
 
 @Slf4j
 @PluginDescriptor(
@@ -30,16 +31,28 @@ public class GhostSepulchrePlugin extends Plugin
 
 	@Inject
 	private StateHandler stateHandler;
+	@Inject
+	private OverlayManager overlayManager;
+	@Inject
+	private GhostSepulchreOverlay overlay;
 
+
+
+	public static final String CONFIG_GROUP = "groundMarker";
+	public static final String RECORDING_KEY = "recording";
 	@Override
 	protected void startUp() throws Exception
 	{
+		overlayManager.add(overlay);
+		overlay.addStateHandler(stateHandler);
+		stateHandler.loadRecordings();
 		log.info("Example started!");
 	}
 
 	@Override
 	protected void shutDown() throws Exception
 	{
+		overlayManager.remove(overlay);
 		log.info("Example stopped!");
 	}
 

@@ -16,20 +16,22 @@ public class GhostSepulchreOverlay extends Overlay {
     private final Client client;
     private final GhostSepulchreConfig config;
     private final GhostSepulchrePlugin plugin;
-    private final StateHandler stateHandler;
+    private StateHandler stateHandler;
 
     @Inject
-    private GhostSepulchreOverlay(Client client, GhostSepulchrePlugin plugin, GhostSepulchreConfig config, StateHandler stateHandler) {
+    private GhostSepulchreOverlay(Client client, GhostSepulchrePlugin plugin, GhostSepulchreConfig config) {
         this.client = client;
         this.config = config;
         this.plugin = plugin;
-        this.stateHandler = stateHandler;
 
         setPosition(OverlayPosition.DYNAMIC);
         setLayer(OverlayLayer.ABOVE_SCENE);
         setPriority(OverlayPriority.MED);
     }
 
+    public void addStateHandler(StateHandler stateHandler) {
+        this.stateHandler = stateHandler;
+    }
 
     @Override
     public Dimension render(Graphics2D graphics) {
